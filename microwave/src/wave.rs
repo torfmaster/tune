@@ -270,7 +270,22 @@ impl Oscillator {
     }
 
     pub fn triangle(&self) -> f64 {
-        ((self.phase + 0.75) % 1.0 - 0.5).abs() * 4.0 - 1.0
+        self.shaped_triangle(0.5)
+    }
+
+    pub fn shaped_triangle(&self, peak_at: f64) -> f64 {
+        let peak_at = peak_at.max(0.0).min(1.0);
+        let half_phase = 2.0 * (self.phase % 0.5);
+        let signal = if half_phase < peak_at {
+            half_phase / peak_at
+        } else {
+            (1.0 - half_phase) / (1.0 - peak_at)
+        };
+        if self.phase < 0.5 {
+            signal
+        } else {
+            -signal
+        }
     }
 
     pub fn square(&self) -> f64 {
