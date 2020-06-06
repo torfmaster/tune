@@ -5,6 +5,24 @@ use tune::{
     temperament::{EqualTemperament, TemperamentType},
 };
 
+// enum Mode {}
+
+// Locrian    (sLLsLLL)
+// Phrygian   (sLLLsLL)
+// Aeolian    (LsLLsLL)
+// Dorian     (LsLLLsL)
+// Mixolydian (LLsLLsL)
+// Ionian     (LLsLLLs)
+// Lydian     (LLLsLLs)
+
+// MelodicMinor    (LsLLLLs)
+// Phrygodorian    (sLLLLsL)
+// LydianAugmented (LLLLsLs)
+// LydianDominant  (LLLsLsL)
+// MelodicMajor    (LLsLsLL)
+// HalfDiminished  (LsLsLLLL)
+// Altered         (sLsLLLL)
+
 pub fn print_info(mut dst: impl io::Write, num_steps_per_octave: u16) -> io::Result<()> {
     let temperament = EqualTemperament::find().by_edo(num_steps_per_octave);
     print_temperament(&mut dst, &temperament)?;
@@ -59,6 +77,18 @@ pub fn print_temperament(
     } else {
         writeln!(dst)?;
     }
+    writeln!(
+        dst,
+        "Dorian scale: {} {} {} {} {} {} {} {}",
+        0,
+        temperament.primary_step(),
+        temperament.primary_step() + temperament.secondary_step(),
+        2 * temperament.primary_step() + temperament.secondary_step(),
+        3 * temperament.primary_step() + temperament.secondary_step(),
+        4 * temperament.primary_step() + temperament.secondary_step(),
+        4 * temperament.primary_step() + 2 * temperament.secondary_step(),
+        5 * temperament.primary_step() + 2 * temperament.secondary_step()
+    )?;
     writeln!(dst)?;
 
     writeln!(dst, "-- Keyboard layout --")?;
