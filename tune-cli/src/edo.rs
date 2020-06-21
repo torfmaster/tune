@@ -1,8 +1,9 @@
-use std::io;
+use std::{convert::TryFrom, io};
 use tune::{
     key::{Keyboard, PianoKey},
+    math,
     ratio::Ratio,
-    temperament::{EqualTemperament, TemperamentType},
+    temperament::{EqualTemperament, TemperamentPreference, TemperamentType},
 };
 
 // enum Mode {}
@@ -140,4 +141,56 @@ pub fn print_temperament(
     }
 
     Ok(())
+}
+
+pub fn print_claviatures(mut dst: impl io::Write, num_steps_per_octave: u16) -> io::Result<()> {
+    let temperament = EqualTemperament::find()
+        .with_second_best_fifth_allowed(false)
+        .with_preference(TemperamentPreference::Meantone)
+        .by_edo(num_steps_per_octave);
+
+    assert_eq!(temperament.num_cycles(), 1);
+
+    let mut num_claviatures = i16::try_from(num_steps_per_octave / 12).unwrap();
+    if num_steps_per_octave % 12 != 0 {
+        num_claviatures += 1;
+    }
+
+    for claviature_index in 0..num_claviatures {
+        // TODO: Shift geschickter berechnen, vielleicht zentrieren?
+
+        let seven_fifths = temperament.sharpness() - temperament.secondary_step();
+        let offset = claviature_index * seven_fifths;
+        for primary_step in 0..6 {
+            let key = math::i16_rem_u16(
+                primary_step * temperament.primary_step() + offset,
+                num_steps_per_octave,
+            );
+            write!(dst, "{:^4}", key).unwrap()
+        }
+        writeln!(dst).unwrap();
+        for primary_step in 0..6 {
+            let key = math::i16_rem_u16(
+                primary_step * temperament.primary_step() + temperament.secondary_step() + offset,
+                num_steps_per_octave,
+            );
+            write!(dst, "{:^4}", key).unwrap()
+        }
+        writeln!(dst).unwrap();
+        writeln!(dst).unwrap();
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io;
+
+    #[test]
+    fn test_name() {
+        // TODO: 33 funktioniert nicht
+        print_claviatures(io::stdout(), 23).unwrap();
+    }
 }
