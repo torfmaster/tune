@@ -23,8 +23,8 @@ impl<E: 'static + Eq + Hash + Send> AudioModel<E> {
         delay_feedback: f32,
     ) -> Self {
         let renderer = AudioRenderer {
-            waveform_synth,
             fluid_synth,
+            waveform_synth,
             delay: Delay::new(
                 (delay_secs * (stream::DEFAULT_SAMPLE_RATE * 2) as f32).round() as usize,
                 delay_feedback,
@@ -38,7 +38,7 @@ impl<E: 'static + Eq + Hash + Send> AudioModel<E> {
             .build()
             .unwrap();
 
-        Self { stream }
+        AudioModel { stream }
     }
 }
 

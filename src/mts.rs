@@ -7,6 +7,7 @@
 use crate::ratio::Ratio;
 use crate::{
     key::PianoKey,
+    note::NoteLetter,
     tuning::{ConcertPitch, Tuning},
 };
 use core::ops::Range;
@@ -62,7 +63,7 @@ pub struct SingleNoteTuningChangeMessage {
 
 impl SingleNoteTuningChangeMessage {
     pub fn from_scale(
-        tuning: impl Tuning<PianoKey>,
+        tuning: &impl Tuning<PianoKey>,
         device_id: DeviceId,
         tuning_program: u8,
     ) -> Result<Self, TuningError> {
@@ -234,7 +235,7 @@ impl ScaleOctaveTuningMessage {
 
 fn convert_pitch_bend(pitch_bend: Ratio) -> u8 {
     let cents_value = pitch_bend.as_cents().round();
-    assert!((-64.0..63.0).contains(&cents_value));
+    assert!((-64.0..63.0).contains(&dbg!(cents_value)));
     (0x40 + cents_value as i8) as u8
 }
 
@@ -263,6 +264,25 @@ pub struct ScaleOctaveTuning {
     pub a: Ratio,
     pub ash: Ratio,
     pub b: Ratio,
+}
+
+impl ScaleOctaveTuning {
+    pub fn as_mut(&mut self, letter: NoteLetter) -> &mut Ratio {
+        match letter {
+            NoteLetter::C => &mut self.c,
+            NoteLetter::Csh => &mut self.csh,
+            NoteLetter::D => &mut self.d,
+            NoteLetter::Dsh => &mut self.dsh,
+            NoteLetter::E => &mut self.e,
+            NoteLetter::F => &mut self.f,
+            NoteLetter::Fsh => &mut self.fsh,
+            NoteLetter::G => &mut self.g,
+            NoteLetter::Gsh => &mut self.gsh,
+            NoteLetter::A => &mut self.a,
+            NoteLetter::Ash => &mut self.ash,
+            NoteLetter::B => &mut self.b,
+        }
+    }
 }
 
 pub enum Channels<'a> {

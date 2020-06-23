@@ -1,7 +1,17 @@
 use crate::piano::PianoEngine;
-use midir::{MidiInput, MidiInputConnection};
+use midir::{MidiInput, MidiInputConnection, MidiOutput, MidiOutputConnection};
 use std::io::Write;
 use std::sync::Arc;
+use tune::{
+    key_map::KeyMap,
+    mts::{Channels, ScaleOctaveTuning, ScaleOctaveTuningMessage},
+    note::Note,
+    pitch::Pitched,
+    ratio::Ratio,
+    scale,
+    temperament::{EqualTemperament, TemperamentPreference},
+    tuning::Tuning,
+};
 
 pub fn print_midi_devices() {
     let midi_input = MidiInput::new("microwave").unwrap();
@@ -219,4 +229,120 @@ mod tests {
             }
         ));
     }
+}
+
+pub fn connect_to(device_name: &str) -> Option<MidiOutputConnection> {
+    let midi_output = MidiOutput::new("microwave").unwrap();
+
+    for port in midi_output.ports() {
+        let port_name = midi_output.port_name(&port).unwrap();
+        println!("{}", port_name);
+        if port_name.contains(&device_name) {
+            return Some(midi_output.connect(&port, "out_connection").unwrap());
+        }
+    }
+
+    None
+}
+
+pub fn connect_to_in_port<T: Send, F: FnMut(u64, &[u8], &mut T) + Send + 'static>(
+    device_name: &str,
+    callback: F,
+    data: T,
+) -> Option<MidiInputConnection<T>> {
+    let midi_input = MidiInput::new("microwave").unwrap();
+
+    for port in midi_input.ports() {
+        let port_name = midi_input.port_name(&port).unwrap();
+        println!("{}", port_name);
+        if port_name.contains(&device_name) {
+            return Some(
+                midi_input
+                    .connect(&port, "in_connection", callback, data)
+                    .unwrap(),
+            );
+        }
+    }
+
+    None
+}
+
+#[test]
+fn octave_tuning() {
+    connect_to("FLUID")
+        .unwrap()
+        .send(octave_scale_retune(22).sysex_bytes())
+        .unwrap();
+}
+
+// First claviature
+pub fn octave_scale_retune(num_divisions_per_octave: u16) -> ScaleOctaveTuningMessage {
+    let root_note = Note::from_midi_number(60);
+    let scale = scale::create_equal_temperament_scale(
+        None,
+        Ratio::from_octaves(1.0 / f64::from(num_divisions_per_octave)),
+    );
+    let key_map = KeyMap::root_at(root_note);
+
+    let temperament = EqualTemperament::find()
+        .with_preference(TemperamentPreference::Meantone)
+        .by_edo(num_divisions_per_octave);
+
+    let mut scale_octave_tuning = ScaleOctaveTuning::default();
+
+    for i in 0..12 {
+        let note_to_retune = root_note.plus_semitones(i);
+        let original_pitch = note_to_retune.pitch();
+
+        let num_primary_steps = i / 2;
+        let num_secondary_steps = i % 2;
+        let mapped_key = root_note
+            .as_piano_key()
+            .plus_steps(num_primary_steps * i32::from(temperament.primary_step()))
+            .plus_steps(num_secondary_steps * i32::from(temperament.secondary_step()));
+        let target_pitch = scale.with_key_map(&key_map).pitch_of(mapped_key);
+
+        let detune = Ratio::between_pitches(original_pitch, target_pitch);
+
+        *scale_octave_tuning.as_mut(note_to_retune.letter_and_octave().0) = detune;
+    }
+
+    // Minimize tuning, s.t. F# is NOT detuned
+    let baseline = scale_octave_tuning.d.inv();
+    for i in 0..12 {
+        let letter = Note::from_midi_number(i).letter_and_octave().0;
+        let detuning = scale_octave_tuning.as_mut(letter);
+        *detuning = detuning.stretched_by(baseline);
+    }
+
+    ScaleOctaveTuningMessage::from_scale_octave_tuning(
+        &scale_octave_tuning,
+        Channels::All,
+        Default::default(),
+    )
+    .unwrap()
+}
+
+#[test]
+fn play_some_midi_notes() {
+    let mut connection = connect_to("FLUID").unwrap();
+
+    loop {
+        connection.send(&note_on(0, 60, 100)).unwrap();
+        std::thread::sleep_ms(1000);
+        connection.send(&note_on(0, 85, 100)).unwrap();
+        std::thread::sleep_ms(1000);
+    }
+}
+
+pub fn note_off(channel: u8, note: u8, velocity: u8) -> [u8; 3] {
+    [channel_msg(0b1000, channel), note, velocity]
+}
+
+pub fn note_on(channel: u8, note: u8, velocity: u8) -> [u8; 3] {
+    [channel_msg(0b1001, channel), note, velocity]
+}
+
+fn channel_msg(prefix: u8, channel_nr: u8) -> u8 {
+    prefix << 4 | channel_nr
 }

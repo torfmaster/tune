@@ -1,12 +1,15 @@
 use crate::{
     fluid::{FluidGlobalMessage, FluidMessage, FluidPolyphonicMessage},
     keypress::{IllegalState, KeypressTracker, LiftAction, PlaceAction},
+    midi,
     midi::ChannelMessageType,
     model::{EventId, EventPhase},
     synth::{WaveformAction, WaveformMessage},
     tuner::ChannelTuner,
     wave::{self, Patch},
 };
+use midir::MidiOutputConnection;
+use mts::SingleNoteTuningChangeMessage;
 use std::{
     collections::HashMap,
     convert::TryInto,
@@ -15,6 +18,7 @@ use std::{
 };
 use tune::{
     key::PianoKey,
+    mts,
     note::{Note, NoteLetter},
     pitch::Pitch,
     ratio::Ratio,
@@ -59,6 +63,7 @@ struct PianoEngineModel {
     channel_tuner: ChannelTuner,
     fluid_messages: std::sync::mpsc::Sender<FluidMessage>,
     waveform_messages: Sender<WaveformMessage<EventId>>,
+    output_connection: MidiOutputConnection,
 }
 
 impl Deref for PianoEngineModel {
@@ -101,6 +106,7 @@ impl PianoEngine {
             channel_tuner: ChannelTuner::new(),
             fluid_messages,
             waveform_messages,
+            output_connection: midi::connect_to("FLUID").unwrap(),
         };
 
         model.set_program(program_number);
@@ -302,6 +308,17 @@ impl PianoEngineModel {
     fn retune(&mut self) {
         let tuning = (&self.snapshot.scale, Kbm::root_at(self.root_note));
 
+        let tuning_program_change = mts::tuning_program_change(0, 0);
+        for control_change in &tuning_program_change {
+            self.output_connection.send(control_change).unwrap();
+        }
+
+        let sntcm =
+            SingleNoteTuningChangeMessage::from_scale(&tuning, Default::default(), 0).unwrap();
+        self.output_connection.send(&sntcm.sysex_bytes()).unwrap();
+
+        return;
+
         let channel_tunings = self
             .channel_tuner
             .set_tuning(&tuning)
@@ -386,7 +403,12 @@ impl PianoEngineModel {
         }
     }
 
-    fn send_fluid_note_on(&self, (channel, note): (u8, u8), velocity: u8) {
+    fn send_fluid_note_on(&mut self, (channel, note): (u8, u8), velocity: u8) {
+        self.output_connection
+            .send(&midi::note_on(channel, note, velocity))
+            .unwrap();
+        return;
+
         self.fluid_messages
             .send(FluidMessage::Polyphonic {
                 channel,
@@ -396,7 +418,13 @@ impl PianoEngineModel {
             .unwrap();
     }
 
-    fn send_fluid_note_off(&self, (channel, note): (u8, u8)) {
+    fn send_fluid_note_off(&mut self, (channel, note): (u8, u8)) {
+        // TODO: Release velocity
+        self.output_connection
+            .send(&midi::note_off(channel, note, 0))
+            .unwrap();
+        return;
+
         self.fluid_messages
             .send(FluidMessage::Polyphonic {
                 channel,
