@@ -78,6 +78,8 @@ impl AudioModel {
             )
             .unwrap();
 
+        stream.play().unwrap();
+
         Self {
             stream,
             events: send,
