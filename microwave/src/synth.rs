@@ -1,5 +1,4 @@
 use crate::wave::Waveform;
-use nannou_audio::Buffer;
 use std::{
     collections::HashMap,
     hash::Hash,
@@ -47,7 +46,7 @@ impl<E: Eq + Hash> WaveformSynth<E> {
         self.message_sender.clone()
     }
 
-    pub fn write(&mut self, buffer: &mut Buffer) {
+    pub fn write(&mut self, buffer: &mut [f32], sample_rate: u32) {
         for message in self.messages.try_iter() {
             self.state.process_message(message)
         }
@@ -65,7 +64,7 @@ impl<E: Eq + Hash> WaveformSynth<E> {
 
         let volume = (0.1f64).min(0.5 / total_amplitude); // 1/10 per wave, but at most 1/2 in total
 
-        let sample_width = 1.0 / buffer.sample_rate() as f64;
+        let sample_width = 1.0 / sample_rate as f64;
 
         for (id, waveform) in &mut self.state.playing {
             let sample_width = match id {

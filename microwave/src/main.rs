@@ -80,9 +80,9 @@ struct RunOptions {
     #[structopt(long = "pg")]
     program_number: Option<u8>,
 
-    /// Audio buffer size in frames
-    #[structopt(long = "bs", default_value = "64")]
-    buffer_size: usize,
+    /// Audio buffer size in frames (frame rate = 44100 Hz)
+    #[structopt(long = "bs", default_value = "1024")]
+    buffer_size: u32,
 
     /// Use porcupine layout when possible
     #[structopt(long = "porcupine")]
@@ -162,8 +162,8 @@ fn start(app: &App, config: RunOptions) -> Result<Model, String> {
     );
 
     let audio = AudioModel::new(
-        fluid_synth,
         waveform_synth,
+        fluid_synth,
         config.buffer_size,
         config.delay_time,
         config.delay_feedback,

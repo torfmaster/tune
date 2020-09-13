@@ -1,7 +1,6 @@
 use crate::model::SelectedProgram;
 use fluidlite::{IsPreset, Settings, Synth};
 use mpsc::Receiver;
-use nannou_audio::Buffer;
 use std::{
     convert::TryInto,
     path::PathBuf,
@@ -68,7 +67,7 @@ impl FluidSynth {
         self.message_sender.clone()
     }
 
-    pub fn write(&mut self, buffer: &mut Buffer) {
+    pub fn write(&mut self, buffer: &mut [f32]) {
         for message in self.messages.try_iter() {
             self.process_message(message)
         }

@@ -22,7 +22,7 @@ use tune::{
 };
 
 pub struct Model {
-    pub audio: AudioModel<EventId>,
+    pub audio: AudioModel,
     pub recording_active: bool,
     pub engine: Arc<PianoEngine>,
     pub engine_snapshot: PianoEngineSnapshot,
@@ -57,7 +57,7 @@ pub enum EventPhase {
 
 impl Model {
     pub fn new(
-        audio: AudioModel<EventId>,
+        audio: AudioModel,
         engine: Arc<PianoEngine>,
         engine_snapshot: PianoEngineSnapshot,
         keyboard: Keyboard,
