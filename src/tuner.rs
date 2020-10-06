@@ -3,7 +3,7 @@
 use crate::{
     key::PianoKey, mts::ScaleOctaveTuning, note::Note, pitch::Pitched, ratio::Ratio, tuning::Tuning,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 
 /// Maps [`PianoKey`]s accross multiple channels to overcome several tuning limitations.
 pub struct ChannelTuner {
@@ -32,7 +32,6 @@ impl ChannelTuner {
     ) -> Vec<ChannelTuning> {
         self.key_map.clear();
 
-        // BTreeMap used to guarantee a stable distribution accross channels
         let mut keys_to_distribute_over_channels = Vec::new();
         for midi_number in lower_key_bound.midi_number()..upper_key_bound.midi_number() {
             let key = PianoKey::from_midi_number(midi_number);
@@ -150,6 +149,37 @@ impl ChannelTuning {
             }
         }
         result
+    }
+}
+
+struct PitchBendTuner {
+    free_channels: VecDeque<usize>,
+    active_notes: HashMap<u8, usize>, // TODO: Note instead of u8
+}
+
+impl PitchBendTuner {
+    pub fn register_note(&mut self, key: u8) -> Option<usize> {
+        let free_channel = self.free_channels.pop_front();
+
+        if let Some(free_channel) = free_channel {
+            self.active_notes.insert(key, free_channel);
+        }
+
+        free_channel
+    }
+
+    pub fn deregister_note(&mut self, key: u8) -> Option<usize> {
+        let freed_channel = self.active_notes.remove(&key);
+
+        if let Some(freed_channel) = freed_channel {
+            self.free_channels.push_back(freed_channel);
+        }
+
+        freed_channel
+    }
+
+    pub fn get_registered_note(&self, key: u8) -> Option<usize> {
+        self.active_notes.get(&key).copied()
     }
 }
 
