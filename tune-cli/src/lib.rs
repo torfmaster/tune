@@ -93,6 +93,7 @@ struct DumpOptions {
     limit_params: LimitOptions,
 }
 
+// TODO: Reuse this
 #[derive(StructOpt)]
 struct ScaleOptions {
     #[structopt(flatten)]
