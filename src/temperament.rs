@@ -1,6 +1,7 @@
 //! Explore equal temperaments.
 
 use crate::{
+    comma::Comma,
     generators::{NoteFormatter, NoteOrder, PerGen},
     ratio::Ratio,
 };
@@ -303,6 +304,10 @@ impl Val {
         }
     }
 
+    pub fn optimal(ratio: Ratio, prime_limit: u8) -> Self {
+        todo!("https://en.xen.wiki/w/Optimal_patent_val")
+    }
+
     /// Creates a [`Val`] from the given values.
     ///
     /// [`None`] is returned if the provided list is too long.
@@ -356,6 +361,64 @@ impl Val {
             U8_PRIMES[self.values.len() - 1]
         }
     }
+
+    pub fn errors(&self, ratio: Ratio) {}
+
+    /// ```
+    /// # use assert_approx_eq::assert_approx_eq;
+    /// # use tune::comma::Val;
+    /// # use tune::ratio::Ratio;
+    /// // TODO: Not working
+    /// let step_size_of_12_edo = Ratio::octave().divided_into_equal_steps(12);
+    /// assert_approx_eq!(Val::patent(step_size_of_12_edo, 3).badness(step_size_of_12_edo), 0.01955);
+    ///
+    /// let step_size_of_19_edo = Ratio::octave().divided_into_equal_steps(19);
+    /// assert_approx_eq!(Val::patent(step_size_of_19_edo, 5).badness(step_size_of_19_edo), 17.63523);
+    /// ```
+    pub fn badness(&self, step_width: Ratio) -> f64 {
+        self.values
+            .iter()
+            .zip(U8_PRIMES)
+            .map(|(&num_steps, &prime_number)| {
+                step_width
+                    .repeated(num_steps)
+                    .deviation_from(Ratio::from_float(prime_number.into()))
+                    .num_equal_steps_of_size(step_width)
+                    .abs()
+            })
+            .sum()
+    }
+
+    /// ```
+    /// # use assert_approx_eq::assert_approx_eq;
+    /// # use tune::comma::Val;
+    /// # use tune::ratio::Ratio;
+    /// let val_of_19_edo = Val::patent(Ratio::octave().divided_into_equal_steps(19), 5);
+    /// assert_eq!(val_of_19_edo.te_norm(), 3.0);
+    /// // TODO: Not working
+    /// ```
+    pub fn te_norm(&self) -> f64 {
+        (self
+            .values
+            .iter()
+            .zip(U8_PRIMES)
+            .map(|(&num_steps, &prime_number)| {
+                f64::from(num_steps) / f64::from(prime_number).log2()
+            })
+            .sum::<f64>()
+            / self.values.len() as f64)
+            .sqrt()
+    }
+
+    pub fn optimal_stretch(&self) -> f64 {
+        todo!("Consider return type")
+    }
+
+    pub fn tampers_out(&self, comma: &Comma) -> bool {
+        todo!("implement")
+    }
+
+    // list tempered out commas
 }
 
 #[cfg(test)]
